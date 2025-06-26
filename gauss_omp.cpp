@@ -6,6 +6,7 @@
 #include <chrono> // Для вимірювання часу
 #include <omp.h>  // Для OpenMP
 
+
 // Функція для генерації випадкової матриці з домінуючою діагоналлю
 void generateRandomMatrix(std::vector<std::vector<double>>& A, std::vector<double>& b, int n) {
     std::random_device rd;
@@ -40,12 +41,11 @@ void printMatrix(const std::vector<std::vector<double>>& A, const std::vector<do
     }
 }
 
-// Основна функція для розв'язання системи методом Гаусса
+// Функція для розв'язання системи методом Гаусса
 std::vector<double> gaussianElimination(std::vector<std::vector<double>> A, std::vector<double> b, int n) {
     // Прямий хід (елімінація)
     for (int k = 0; k < n; ++k) {
         // Знаходимо опорний елемент (максимальний за модулем в поточному стовпці)
-        // Цей крок зазвичай не паралелізується без значних накладних витрат
         int max_row = k;
         for (int i = k + 1; i < n; ++i) {
             if (std::abs(A[i][k]) > std::abs(A[max_row][k])) {
@@ -72,8 +72,6 @@ std::vector<double> gaussianElimination(std::vector<std::vector<double>> A, std:
     std::vector<double> x(n);
     for (int i = n - 1; i >= 0; --i) {
         double sum = 0.0;
-        // Паралелізація тут можлива, але для невеликих N може бути неефективною
-        // #pragma omp parallel for reduction(+:sum)
         for (int j = i + 1; j < n; ++j) {
             sum += A[i][j] * x[j];
         }
@@ -123,22 +121,25 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Матриця згенерована. Починаємо обчислення..." << std::endl;
 
+    std::vector<double> execution_times;
+    
     // Цикл для запуску з різною кількістю процесорів
     for (int num_threads = 1; num_threads <= 8; ++num_threads) {
         omp_set_num_threads(num_threads); // Встановлюємо кількість потоків
 
-        // Робимо копії матриці та вектора для кожного запуску
-        // Це необхідно, тому що метод Гаусса змінює A та b
         std::vector<std::vector<double>> current_A = A_copy;
         std::vector<double> current_b = b_copy;
 
-        auto start_time = std::chrono::high_resolution_clock::now();
+        // Вимірювання часу за допомогою omp_get_wtime()
+        double start_time = omp_get_wtime(); 
         std::vector<double> x = gaussianElimination(current_A, current_b, n);
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duration = end_time - start_time;
+        double end_time = omp_get_wtime();
+        double duration = end_time - start_time;
+
+        execution_times.push_back(duration); // Зберігаємо час виконання
 
         std::cout << "\n--- Результати для " << num_threads << " потоків ---" << std::endl;
-        std::cout << "Час виконання: " << duration.count() << " секунд" << std::endl;
+        std::cout << "Час виконання: " << std::fixed << std::setprecision(6) << duration << " секунд" << std::endl;
 
         // Перевірка коректності (для невеликих N)
         // Для великих N краще перевіряти норму нев'язки (||Ax - b||)
@@ -156,6 +157,10 @@ int main(int argc, char* argv[]) {
                     res += A_copy[i][j] * x[j]; // Використовуємо початкову A_copy
                 }
                 max_error = std::max(max_error, std::abs(res - b_copy[i]));
+            }
+            std::cout << "\n--- Зведення часів виконання ---" << std::endl;
+            for (size_t i = 0; i < execution_times.size(); ++i) {
+                std::cout << "Потоків " << (i + 1) << ": " << std::fixed << std::setprecision(6) << execution_times[i] << " сек" << std::endl;
             }
             std::cout << "Максимальна абсолютна помилка (норма нев'язки): " << max_error << std::endl;
             if (max_error < 1e-6) { // Припустима похибка
