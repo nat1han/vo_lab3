@@ -1,0 +1,28 @@
+#!/bin/bash
+#PBS -N gauss_omp           # Назва завдання
+#PBS -q standard            # Ім'я черги (може відрізнятися на вашому кластері)
+#PBS -l nodes=1:ppn=8       # Запитуємо 1 вузол, 8 процесорів на вузол (ppn - processors per node)
+#PBS -l walltime=00:01:00   # Максимальний час виконання (1 година)
+#PBS -l mem=1gb             # Максимальний об'єм пам'яті (1 ГБ)
+#PBS -o gauss_omp.out       # Файл для стандартного виводу
+#PBS -e gauss_omp.err       # Файл для стандартних помилок
+
+# Завантаження необхідних модулів (якщо потрібно на вашому кластері)
+# module load gcc/XYZ
+# module load openmpi/XYZ
+
+# Змінна середовища OpenMP - наша програма вже встановлює її внутрішньо, але це альтернатива
+# export OMP_NUM_THREADS=$PBS_NUM_PPN # $PBS_NUM_PPN автоматично містить кількість ppn
+
+MATRIX_SIZE=2500 # Виберіть розмір матриці, що відповідає вашим вимогам
+                 # Пам'ятайте про розрахунки пам'яті та часу виконання, надані раніше.
+
+echo "Running Gaussian Elimination with OpenMP on PBS"
+echo "Matrix Size: $MATRIX_SIZE"
+echo "Number of processors per node: $PBS_NUM_PPN"
+
+# Запускаємо скомпільовану програму
+# Програма внутрішньо вже має цикл для тестування 1, 2, ..., 8 потоків
+./gauss_omp $MATRIX_SIZE
+
+echo "Finished."
